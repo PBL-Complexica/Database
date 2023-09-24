@@ -34,18 +34,31 @@ class user_email(db.Model):
 
 class phone_number(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    phone_number = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
 
 
 class user_phone(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('app_user.id'), nullable=False)
+    phone_id = db.Column(db.Integer, db.ForeignKey('phone_number.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    removed_at = db.Column(db.DateTime, nullable=True, default='2100-01-01 00:00:00')
 
 
 class device(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    device_name = db.Column(db.String(50), nullable=False)
+    device_sn = db.Column(db.String(), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
 
 
 class user_device(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('app_user.id'), nullable=False)
+    device_id = db.Column(db.Integer, db.ForeignKey('device.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    removed_at = db.Column(db.DateTime, nullable=True, default='2100-01-01 00:00:00')
 
 
 class category(db.Model):
