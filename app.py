@@ -63,19 +63,34 @@ class user_device(db.Model):
 
 class category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    category_name = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
 
 
 class user_category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('app_user.id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    removed_at = db.Column(db.DateTime, nullable=True, default='2100-01-01 00:00:00')
 
 
 class subscription_type(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    subscription_type_name = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
 
 
 class subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    subscription_type_id = db.Column(db.Integer, db.ForeignKey('subscription_type.id'), nullable=False)
+    valid_from = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
 
 
 class user_subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('app_user.id'), nullable=False)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    removed_at = db.Column(db.DateTime, nullable=True, default='2100-01-01 00:00:00')
