@@ -11,14 +11,25 @@ migrate = Migrate(app, db)
 
 class app_user(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    password_hash = db.Column(db.String(), nullable=False)
+    birth_date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
 
 
 class email_address(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    email_address = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
 
 
 class user_email(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('app_user.id'), nullable=False)
+    email_id = db.Column(db.Integer, db.ForeignKey('email_address.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    removed_at = db.Column(db.DateTime, nullable=True, default='2100-01-01 00:00:00')
 
 
 class phone_number(db.Model):
