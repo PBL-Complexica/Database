@@ -21,6 +21,13 @@ def add_categories(name: str, prices: list):
     )
 
 
+def add_user_categories(name: str):
+    db.custom_query(
+        "INSERT INTO category (category_name, created_at) VALUES (%s, %s)",
+        (name, datetime.now())
+    )
+
+
 def main():
     add_categories("G", [234, 594, 972])
     add_categories("ST", [164, 416, 680])
@@ -30,6 +37,14 @@ def main():
     add_categories("FC", [117, 297, 483])
     add_categories("DI", [164, 416, 680])
     add_categories("DM", [164, 416, 680])
+    add_user_categories("general")
+    add_user_categories("student")
+    add_user_categories("elev")
+    add_user_categories("agent economic")
+    add_user_categories("familie monoparentala")
+    add_user_categories("familie cu multi copii")
+    add_user_categories("personal didactic")
+    add_user_categories("personal medical")
 
 
 if __name__ == '__main__':
