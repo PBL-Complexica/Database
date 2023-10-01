@@ -80,6 +80,7 @@ class subscription_type(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subscription_type_name = db.Column(db.String(50), nullable=False)
     months = db.Column(db.Integer, nullable=False)
+    cost = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
 
 
