@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:postgres@localhost:5432/postgres'
@@ -78,6 +79,7 @@ class user_category(db.Model):
 class subscription_type(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subscription_type_name = db.Column(db.String(50), nullable=False)
+    months = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
 
 
