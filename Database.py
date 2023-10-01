@@ -15,7 +15,8 @@ class Database:
     def custom_query(self, query, values: tuple):
         self.cursor.execute(query, values)
         self.db.commit()
-        return self.cursor.fetchall()
+        if query.startswith("SELECT"):
+            return self.cursor.fetchall()
 
     def insert_user(self, first_name, last_name, password_hash, birth_date=None):
         self.cursor.execute(
