@@ -21,7 +21,7 @@ class app_user(db.Model):
 
 class email_address(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email_address = db.Column(db.String(50), nullable=False)
+    email_address = db.Column(db.String(50), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, nullable=False)
 
 
@@ -35,7 +35,7 @@ class user_email(db.Model):
 
 class phone_number(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    phone_number = db.Column(db.String(50), nullable=False)
+    phone_number = db.Column(db.String(50), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, nullable=False)
 
 
@@ -50,7 +50,7 @@ class user_phone(db.Model):
 class device(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     device_name = db.Column(db.String(50), nullable=False)
-    device_sn = db.Column(db.String(), nullable=False)
+    device_sn = db.Column(db.String(), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, nullable=False)
 
 
