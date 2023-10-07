@@ -71,7 +71,7 @@ class UserDevice(db.Model):
 class Category(db.Model):
     __tablename__ = 'category'
     id = db.Column(db.Integer, primary_key=True)
-    category_name = db.Column(db.String(50), nullable=False)
+    category_name = db.Column(db.String(50), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, nullable=False)
 
 
@@ -87,7 +87,7 @@ class UserCategory(db.Model):
 class SubscriptionType(db.Model):
     __tablename__ = 'subscription_type'
     id = db.Column(db.Integer, primary_key=True)
-    subscription_type_name = db.Column(db.String(50), nullable=False)
+    subscription_type_name = db.Column(db.String(50), nullable=False, unique=True)
     months = db.Column(db.Integer, nullable=False)
     cost = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
