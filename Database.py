@@ -27,19 +27,30 @@ class Database(metaclass=DatabaseMeta):
         with app.app_context():
             upgrade()
 
-        with open("config.json", "r") as f:
-            cfg = json.loads(f.read())
+        try:
+            with open("config.json", "r") as f:
+                cfg = json.loads(f.read())
 
-            if any([cfg["database"]["host"], cfg["database"]["database"], cfg["database"]["user"], cfg["database"]["password"]]) == "":
-                raise ValueError("Please fill in the database configuration file")
+                if any([cfg["database"]["host"], cfg["database"]["database"], cfg["database"]["user"], cfg["database"]["password"]]) == "":
+                    raise ValueError("Please fill in the database configuration file")
 
-            self.db = psycopg2.connect(
-                host=cfg["database"]["host"],
-                database=cfg["database"]["database"],
-                user=cfg["database"]["user"],
-                password=cfg["database"]["password"]
-            )
-            self.cursor = self.db.cursor()
+                self.db = psycopg2.connect(
+                    host=cfg["database"]["host"],
+                    database=cfg["database"]["database"],
+                    user=cfg["database"]["user"],
+                    password=cfg["database"]["password"]
+                )
+                self.cursor = self.db.cursor()
+        except FileNotFoundError:
+            open("config.json", "w").write(json.dumps({
+                "database": {
+                    "host": "",
+                    "database": "",
+                    "user": "",
+                    "password": ""
+                }
+            }, indent=4))
+            raise FileNotFoundError("Please fill in the database configuration file")
 
         self.__populate()
 
