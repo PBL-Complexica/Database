@@ -27,7 +27,7 @@ class Database(metaclass=DatabaseMeta):
         with app.app_context():
             upgrade()
 
-        with json.loads(open("db_config.txt", "r").read()) as cfg:
+        with json.loads(open("config.json", "r").read()) as cfg:
             if any([cfg["host"], cfg["database"], cfg["user"], cfg["password"]]) == "":
                 raise ValueError("Please fill in the database configuration file")
 
