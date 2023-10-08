@@ -27,15 +27,17 @@ class Database(metaclass=DatabaseMeta):
         with app.app_context():
             upgrade()
 
-        with json.loads(open("config.json", "r").read()) as cfg:
-            if any([cfg["host"], cfg["database"], cfg["user"], cfg["password"]]) == "":
+        with open("config.json", "r") as f:
+            cfg = json.loads(f.read())
+
+            if any([cfg["database"]["host"], cfg["database"]["database"], cfg["database"]["user"], cfg["database"]["password"]]) == "":
                 raise ValueError("Please fill in the database configuration file")
 
             self.db = psycopg2.connect(
-                host=cfg["host"],
-                database=cfg["database"],
-                user=cfg["user"],
-                password=cfg["password"]
+                host=cfg["database"]["host"],
+                database=cfg["database"]["database"],
+                user=cfg["database"]["user"],
+                password=cfg["database"]["password"]
             )
             self.cursor = self.db.cursor()
 
