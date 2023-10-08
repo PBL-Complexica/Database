@@ -1,8 +1,8 @@
 from datetime import datetime
 from db_model import app
 from dotenv import dotenv_values
-import json
-import os
+from bcrypt import gensalt, hashpw, checkpw
+import re
 
 
 class DatabaseMeta(type):
@@ -41,8 +41,8 @@ class Database(metaclass=DatabaseMeta):
         )
         self.cursor = self.db.cursor()
 
-        # Remove unconfirmed users
-        self.remove_unconfirmed()
+        # TODO: Remove unconfirmed users
+        # self.remove_unconfirmed()
 
         # Populate database with initial data
         self.__populate()
@@ -51,10 +51,18 @@ class Database(metaclass=DatabaseMeta):
     # Insert new user
     def __insert_user(self, first_name, last_name, password_hash, birth_date=None):
         self.cursor.execute(
-            "INSERT INTO app_user (first_name, last_name, password_hash, birth_date, created_at) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO app_user (first_name, last_name, password_hash, birth_date, created_at, confirmed) "
+            "VALUES (%s, %s, %s, %s, %s, FALSE)",
             (first_name, last_name, password_hash, birth_date, datetime.now())
         )
         self.db.commit()
+
+    def __get_user_id(self, first_name, last_name, password_hash):
+        self.cursor.execute(
+            "SELECT id FROM app_user WHERE first_name = %s AND last_name = %s AND password_hash = %s",
+            (first_name, last_name, password_hash)
+        )
+        return self.cursor.fetchone()
 
     # Insert new email
     def __insert_email(self, email_address):
@@ -64,6 +72,30 @@ class Database(metaclass=DatabaseMeta):
             (email_address, datetime.now())
         )
         self.db.commit()
+
+    # Get email address id
+    def __get_email_id(self, email_address):
+        self.cursor.execute(
+            "SELECT id FROM email_address WHERE email_address = %s",
+            (email_address,)
+        )
+        return self.cursor.fetchone()
+
+    # Get phone number id
+    def __get_phone_id(self, phone_number):
+        self.cursor.execute(
+            "SELECT id FROM phone_number WHERE phone_number = %s",
+            (phone_number,)
+        )
+        return self.cursor.fetchone()
+
+    # Get device id
+    def __get_device_id(self, serial_number):
+        self.cursor.execute(
+            "SELECT id FROM device WHERE device_sn = %s",
+            (serial_number,)
+        )
+        return self.cursor.fetchone()
 
     # Insert new phone number
     def __insert_phone(self, phone_number):
@@ -84,82 +116,60 @@ class Database(metaclass=DatabaseMeta):
         self.db.commit()
 
     # Return user's for a given active email address
-    def __check_email(self, email_address):
+    def __get_user_id_email(self, email_address):
         self.cursor.execute(
             "SELECT user_id FROM user_email "
-            "WHERE email_id = (SELECT id FROM email_address WHERE email_address = %s) AND removed_at > %s",
-            (email_address, datetime.now())
+            "WHERE email_id = %s AND removed_at > %s",
+            (self.__get_email_id(email_address), datetime.now())
         )
         return self.cursor.fetchall()
 
     # Return user's for a given active phone number
-    def __check_phone(self, phone_number):
+    def __get_user_id_phone(self, phone_number):
         self.cursor.execute(
             "SELECT user_id FROM user_phone "
-            "WHERE created_at = (SELECT id FROM phone_number WHERE phone_number = %s) AND removed_at > %s",
-            (phone_number, datetime.now())
+            "WHERE phone_id = %s AND removed_at > %s",
+            (self.__get_phone_id(phone_number), datetime.now())
         )
         return self.cursor.fetchall()
 
     # Return devices associated with a user device
-    def __check_device(self, serial_number):
+    def __get_user_id_device(self, serial_number):
         self.cursor.execute(
             "SELECT user_id FROM user_device "
-            "WHERE created_at = (SELECT id FROM device WHERE device_sn = %s) AND removed_at > %s",
-            (serial_number, datetime.now())
+            "WHERE device_id = %s AND removed_at > %s",
+            (self.__get_device_id(serial_number), datetime.now())
         )
         return self.cursor.fetchall()
 
-    # Public methods
-    # Remove unconfirmed users
-    def remove_unconfirmed(self):
+    # Connect user to email address
+    def __insert_user_email(self, user_id, email_id):
         self.cursor.execute(
-            "DELETE FROM app_user WHERE confirmed = FALSE"
+            "INSERT INTO user_email (user_id, email_id, created_at, confirmed, removed_at) "
+            "VALUES (%s, %s, %s, FALSE, '2100-01-01') ON CONFLICT DO NOTHING",
+            (user_id, email_id, datetime.now())
         )
         self.db.commit()
 
-    # Create new user and associate it with an email, phone number and device
-    # TODO: Finish
-    def register(
-            self,
-            first_name,
-            last_name,
-            password,
-            email_address,
-            device_name=None,
-            device_sn=None,
-            phone_number=None,
-            birth_date=None
-    ):
-        self.__insert_email(email_address)
-        self.__insert_phone(phone_number)
-        self.__insert_device(device_sn, device_name)
-
-        # Get new email's id
+    # Connect user to phone number
+    def __insert_user_phone(self, user_id, phone_id):
         self.cursor.execute(
-            "SELECT id FROM email_address "
-            "WHERE email_address = %s",
-            (email_address,)
+            "INSERT INTO user_phone (user_id, phone_id, created_at, confirmed, removed_at) "
+            "VALUES (%s, %s, %s, FALSE, '2100-01-01') ON CONFLICT DO NOTHING",
+            (user_id, phone_id, datetime.now())
         )
-        email_id = self.cursor.fetchone()[0] if email_address is not None else None
+        self.db.commit()
 
-        # Get new phone's id
+    # Connect user to device
+    def __insert_user_device(self, user_id, device_id):
         self.cursor.execute(
-            "SELECT id FROM phone_number "
-            "WHERE phone_number = %s",
-            (phone_number,)
+            "INSERT INTO user_device (user_id, device_id, created_at, removed_at) "
+            "VALUES (%s, %s, %s, '2100-01-01') ON CONFLICT DO NOTHING",
+            (user_id, device_id, datetime.now())
         )
-        phone_id = self.cursor.fetchone()[0] if phone_number is not None else None
+        self.db.commit()
 
-        # Get new device's id
-        self.cursor.execute(
-            "SELECT id FROM device "
-            "WHERE device_sn = %s",
-            (device_sn,)
-        )
-        device_id = self.cursor.fetchone()[0] if device_sn is not None else None
-
-    # Populate database with initial data
+    # Add subscription types with months and prices
     def __add_categories(self, name: str, prices: list):
         self.cursor.execute(
             "INSERT INTO subscription_type (subscription_type_name, months, cost, created_at) "
@@ -190,6 +200,7 @@ class Database(metaclass=DatabaseMeta):
         )
         self.db.commit()
 
+    # Populate database with initial data
     def __populate(self):
         self.__add_categories("G", [234, 594, 972])
         self.__add_categories("ST", [164, 416, 680])
@@ -207,3 +218,145 @@ class Database(metaclass=DatabaseMeta):
         self.__add_user_categories("familie cu multi copii")
         self.__add_user_categories("personal didactic")
         self.__add_user_categories("personal medical")
+
+    # Public methods
+    # Remove unconfirmed users
+    def remove_unconfirmed(self):
+        self.cursor.execute(
+            "DELETE FROM app_user WHERE confirmed = FALSE"
+        )
+        self.db.commit()
+
+    # Confirm user's email address
+    def confirm_email(self, email_address):
+        self.cursor.execute(
+            "UPDATE user_email SET confirmed = TRUE "
+            "WHERE email_id = (SELECT id FROM email_address WHERE email_address = %s) AND removed_at > %s",
+            (email_address, datetime.now())
+        )
+        self.db.commit()
+
+    # Confirm user's phone number
+    def confirm_phone(self, phone_number):
+        self.cursor.execute(
+            "UPDATE user_phone SET confirmed = TRUE "
+            "WHERE phone_id = (SELECT id FROM phone_number WHERE phone_number = %s) AND removed_at > %s",
+            (phone_number, datetime.now())
+        )
+        self.db.commit()
+
+    # Create new user and associate it with an email, phone number and device
+    def register(
+            self,
+            first_name: str,
+            last_name: str,
+            password: str,
+            email_address: str,
+            device_name: str = None,
+            device_sn: str = None,
+            phone_number: str = None,
+            birth_date: str = None
+    ) -> dict:
+        response = {"type": "", "data": {}}
+
+        # Check email address is valid format
+        email_address_ids = self.__get_user_id_email(email_address)
+        print(email_address_ids)
+        if not re.match(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b", email_address):
+            response["type"] = "error"
+            response["data"]["email_error"] = 2
+            response["data"]["email_message"] = "Invalid email address"
+        else:
+            self.__insert_email(email_address)
+
+            if email_address_ids:
+                response["type"] = "error"
+                response["data"]["email_error"] = 1
+                response["data"]["email_message"] = "Email already in use"
+            else:
+                response["data"]["email_error"] = 0
+                response["data"]["email_message"] = "Email available"
+
+        # Check phone number is valid format
+        phone_number_ids = self.__get_user_id_phone(phone_number)
+        print(phone_number_ids)
+        if not ((len(phone_number) == 8 and (phone_number[0] == "6" or phone_number[0] == "7")) or (
+                len(phone_number) == 9 and (phone_number[0:2] == "06" or phone_number[0:2] == "07")) or (
+                        len(phone_number) == 12 and (phone_number[0:5] == "+3736" or phone_number[0:5] == "+3737"))):
+            response["type"] = "error"
+            response["data"]["phone_error"] = 2
+            response["data"]["phone_message"] = "Invalid phone number"
+        else:
+            self.__insert_phone(phone_number)
+
+            if phone_number_ids:
+                response["type"] = "error"
+                response["data"]["phone_error"] = 1
+                response["data"]["phone_message"] = "Phone number already in use"
+            else:
+                response["data"]["phone_error"] = 0
+                response["data"]["phone_message"] = "Phone number available"
+
+        # Insert device name and serial number
+        device_ids = self.__get_user_id_device(device_sn)
+        print(device_ids)
+        if len(device_sn) != 11:
+            response["type"] = "error"
+            response["data"]["device_error"] = 2
+            response["data"]["device_message"] = "Invalid device serial number"
+        else:
+            self.__insert_device(device_sn, device_name)
+
+            if device_ids:
+                response["type"] = "error"
+                response["data"]["device_error"] = 1
+                response["data"]["device_message"] = "Device already in use"
+            else:
+                response["data"]["device_error"] = 0
+                response["data"]["device_message"] = "Device available"
+
+        # Check first name is valid format
+        if first_name == "" or not first_name.isalpha:
+            response["type"] = "error"
+            response["data"]["first_name_error"] = 2
+            response["data"]["first_name_message"] = "Invalid first name"
+
+        # Check last name is valid format
+        if last_name == "" or not last_name.isalpha:
+            response["type"] = "error"
+            response["data"]["last_name_error"] = 2
+            response["data"]["last_name_message"] = "Invalid last name"
+
+        # Check password is valid format
+        if len(password) < 8:
+            response["type"] = "error"
+            response["data"]["password_error"] = 2
+            response["data"]["password_message"] = "Invalid password, must be at least 8 characters long"
+        else:
+            hashed = hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
+
+            if response["type"] != "error":
+                self.__insert_user(first_name, last_name, hashed, birth_date)
+                user_id = self.__get_user_id(first_name, last_name, hashed)[0]
+                email_address_id = self.__get_email_id(email_address)[0]
+                phone_number_id = self.__get_phone_id(phone_number)[0]
+                device_id = self.__get_device_id(device_sn)[0]
+                self.__insert_user_email(user_id, email_address_id)
+                self.__insert_user_phone(user_id, phone_number_id)
+                self.__insert_user_device(user_id, device_id)
+
+                response["type"] = "success"
+                response["data"]["message"] = "User registered successfully"
+                response["data"]["user_id"] = user_id
+                response["data"]["first_name"] = first_name
+                response["data"]["last_name"] = last_name
+                response["data"]["email_address"] = email_address
+                response["data"]["email_id"] = email_address_id
+                response["data"]["phone_number"] = phone_number
+                response["data"]["phone_id"] = phone_number_id
+                response["data"]["device_name"] = device_name
+                response["data"]["device_sn"] = device_sn
+                response["data"]["device_id"] = device_id
+                response["data"]["birth_date"] = birth_date
+
+        return response
