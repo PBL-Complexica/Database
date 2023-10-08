@@ -1,7 +1,5 @@
-import psycopg2
 from datetime import datetime
 from db_model import app
-from flask_migrate import upgrade
 
 
 class DatabaseMeta(type):
@@ -15,6 +13,16 @@ class DatabaseMeta(type):
 
 class Database(metaclass=DatabaseMeta):
     def __init__(self, host="localhost"):
+        try:
+            import psycopg2
+        except ImportError:
+            raise ImportError("Please install psycopg2: 'pip install psycopg2'")
+
+        try:
+            from flask_migrate import upgrade
+        except ImportError:
+            raise ImportError("Please install flask_migrate: 'pip install flask_migrate'")
+
         with app.app_context():
             upgrade()
 
