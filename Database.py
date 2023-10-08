@@ -261,7 +261,6 @@ class Database(metaclass=DatabaseMeta):
 
         # Check email address is valid format
         email_address_ids = self.__get_user_id_email(email_address)
-        print(email_address_ids)
         if not re.match(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b", email_address):
             response["type"] = "error"
             response["data"]["email_error"] = 2
@@ -279,7 +278,6 @@ class Database(metaclass=DatabaseMeta):
 
         # Check phone number is valid format
         phone_number_ids = self.__get_user_id_phone(phone_number)
-        print(phone_number_ids)
         if not ((len(phone_number) == 8 and (phone_number[0] == "6" or phone_number[0] == "7")) or (
                 len(phone_number) == 9 and (phone_number[0:2] == "06" or phone_number[0:2] == "07")) or (
                         len(phone_number) == 12 and (phone_number[0:5] == "+3736" or phone_number[0:5] == "+3737"))):
@@ -299,7 +297,6 @@ class Database(metaclass=DatabaseMeta):
 
         # Insert device name and serial number
         device_ids = self.__get_user_id_device(device_sn)
-        print(device_ids)
         if len(device_sn) != 11:
             response["type"] = "error"
             response["data"]["device_error"] = 2
@@ -360,3 +357,80 @@ class Database(metaclass=DatabaseMeta):
                 response["data"]["birth_date"] = birth_date
 
         return response
+
+    # Login user
+    def login(self, email_address, password):
+        response = {"type": "", "data": {}}
+
+        # Check email address is valid format
+        if not re.match(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b", email_address):
+            response["type"] = "error"
+            response["data"]["email_error"] = 2
+            response["data"]["email_message"] = "Invalid email address"
+            return response
+
+        email_address_id = self.__get_email_id(email_address)
+        if not email_address_id:
+            response["type"] = "error"
+            response["data"]["email_error"] = 1
+            response["data"]["email_message"] = "Email not registered"
+            return response
+        else:
+            email_address_id = email_address_id[0]
+
+        self.cursor.execute(
+            "SELECT password_hash FROM app_user "
+            "WHERE id = (SELECT user_id FROM user_email WHERE email_id = %s)",
+            (email_address_id,)
+        )
+        password_hash = self.cursor.fetchone()
+
+        if not password_hash:
+            response["type"] = "error"
+            response["data"]["email_error"] = 1
+            response["data"]["email_message"] = "Email not registered"
+            return response
+
+        if not checkpw(password.encode('utf-8'), password_hash[0].encode('utf-8')):
+            response["type"] = "error"
+            response["data"]["password_error"] = 2
+            response["data"]["password_message"] = "Incorrect password"
+            return response
+        else:
+            self.cursor.execute(
+                "SELECT * FROM app_user "
+                "WHERE id = %s",
+                (email_address_id,)
+            )
+            user = self.cursor.fetchone()
+
+            self.cursor.execute(
+                "SELECT phone_number, id FROM phone_number "
+                "WHERE id = (SELECT phone_id FROM user_phone WHERE user_id = %s)",
+                (user[0],)
+            )
+            phone_number, phone_number_id = self.cursor.fetchone()
+
+            self.cursor.execute(
+                "SELECT device_name, device_sn, id FROM device "
+                "WHERE id = (SELECT device_id FROM user_device WHERE user_id = %s)",
+                (user[0],)
+            )
+            device_name, device_sn, device_id = self.cursor.fetchone()
+
+            response["type"] = "success"
+            response["data"]["message"] = "User logged in successfully"
+            response["data"]["user_id"] = user[0]
+            response["data"]["first_name"] = user[1]
+            response["data"]["last_name"] = user[2]
+            response["data"]["email_address"] = email_address
+            response["data"]["email_id"] = email_address_id
+            response["data"]["phone_number"] = phone_number
+            response["data"]["phone_id"] = phone_number_id
+            response["data"]["device_name"] = device_name
+            response["data"]["device_sn"] = device_sn
+            response["data"]["device_id"] = device_id
+            response["data"]["birth_date"] = user[4].strftime("%Y-%m-%d")
+
+            return response
+
