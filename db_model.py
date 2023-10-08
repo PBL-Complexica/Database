@@ -32,6 +32,7 @@ class UserEmail(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('app_user.id'), nullable=False)
     email_id = db.Column(db.Integer, db.ForeignKey('email_address.id'), nullable=False)
+    confirmed = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, nullable=False)
     removed_at = db.Column(db.DateTime, nullable=True, default='2100-01-01 00:00:00')
 
@@ -48,6 +49,7 @@ class UserPhone(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('app_user.id'), nullable=False)
     phone_id = db.Column(db.Integer, db.ForeignKey('phone_number.id'), nullable=False)
+    confirmed = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, nullable=False)
     removed_at = db.Column(db.DateTime, nullable=True, default='2100-01-01 00:00:00')
 
