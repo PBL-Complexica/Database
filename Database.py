@@ -1,5 +1,6 @@
 from datetime import datetime
 from db_model import app
+import json
 
 
 class DatabaseMeta(type):
@@ -12,7 +13,7 @@ class DatabaseMeta(type):
 
 
 class Database(metaclass=DatabaseMeta):
-    def __init__(self, host="localhost"):
+    def __init__(self):
         try:
             import psycopg2
         except ImportError:
@@ -26,13 +27,17 @@ class Database(metaclass=DatabaseMeta):
         with app.app_context():
             upgrade()
 
-        self.db = psycopg2.connect(
-            host=host,
-            database="postgres",
-            user="postgres",
-            password="postgres"
-        )
-        self.cursor = self.db.cursor()
+        with json.loads(open("db_config.txt", "r").read()) as cfg:
+            if any([cfg["host"], cfg["database"], cfg["user"], cfg["password"]]) == "":
+                raise ValueError("Please fill in the database configuration file")
+
+            self.db = psycopg2.connect(
+                host=cfg["host"],
+                database=cfg["database"],
+                user=cfg["user"],
+                password=cfg["password"]
+            )
+            self.cursor = self.db.cursor()
 
         self.__populate()
 
