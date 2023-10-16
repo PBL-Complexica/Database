@@ -1,3 +1,4 @@
+import sqlalchemy.dialects.postgresql
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -16,6 +17,7 @@ class AppUser(db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     password_hash = db.Column(db.String(), nullable=False)
+    active = db.Column(db.Boolean, nullable=False)
     confirmed = db.Column(db.Boolean, nullable=False, default=False)
     birth_date = db.Column(db.Date, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)

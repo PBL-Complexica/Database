@@ -51,8 +51,8 @@ class Database(metaclass=DatabaseMeta):
     # Insert new user
     def __insert_user(self, first_name, last_name, password_hash, birth_date=None):
         self.cursor.execute(
-            "INSERT INTO app_user (first_name, last_name, password_hash, birth_date, created_at, confirmed) "
-            "VALUES (%s, %s, %s, %s, %s, FALSE)",
+            "INSERT INTO app_user (first_name, last_name, password_hash, birth_date, created_at, confirmed, active) "
+            "VALUES (%s, %s, %s, %s, %s, FALSE, TRUE)",
             (first_name, last_name, password_hash, birth_date, datetime.now())
         )
         self.db.commit()
@@ -359,51 +359,120 @@ class Database(metaclass=DatabaseMeta):
         return response
 
     # Login user
-    def login(self, email_address, password):
+    # TODO: Add phone login option
+    def login(self, credential: str, password: str) -> dict:
         response = {"type": "", "data": {}}
+        password_hash = None
+        email_auth = False
+        phone_auth = False
 
-        # Check email address is valid format
-        if not re.match(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b", email_address):
+        # Check if credential is email
+        if re.match(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b", credential):
+            email_auth = True
+        # Check if credential is phone number
+        elif ((len(credential) == 8 and (credential[0] == "6" or credential[0] == "7")) or (
+               len(credential) == 9 and (credential[0:2] == "06" or credential[0:2] == "07")) or (
+               len(credential) == 12 and (credential[0:5] == "+3736" or credential[0:5] == "+3737"))) and (
+               credential[-7:].isdigit()):
+            phone_auth = True
+        # Send error if credential is not email or phone number
+        else:
             response["type"] = "error"
             response["data"]["email_error"] = 2
             response["data"]["email_message"] = "Invalid email address"
-            return response
+            response["data"]["phone_error"] = 2
+            response["data"]["phone_message"] = "Invalid phone number"
 
-        email_address_id = self.__get_email_id(email_address)
-        if not email_address_id:
-            response["type"] = "error"
-            response["data"]["email_error"] = 1
-            response["data"]["email_message"] = "Email not registered"
-            return response
-        else:
-            email_address_id = email_address_id[0]
+        # If credential is email, check if email is registered
+        if email_auth:
+            email_address_id = self.__get_email_id(credential)
 
-        self.cursor.execute(
-            "SELECT password_hash FROM app_user "
-            "WHERE id = (SELECT user_id FROM user_email WHERE email_id = %s)",
-            (email_address_id,)
-        )
-        password_hash = self.cursor.fetchone()
+            # If email is not registered, send error
+            if not email_address_id:
+                response["type"] = "error"
+                response["data"]["email_error"] = 1
+                response["data"]["email_message"] = "Email not registered"
+                return response
+            # If email is registered, get password hash
+            else:
+                email_address_id = email_address_id[0]
 
+                self.cursor.execute(
+                    "SELECT password_hash FROM app_user "
+                    "WHERE id = (SELECT user_id FROM user_email WHERE email_id = %s)",
+                    (email_address_id,)
+                )
+                password_hash = self.cursor.fetchone()
+        # If credential is phone number, check if phone number is registered
+        elif phone_auth:
+            phone_number_id = self.__get_phone_id(credential)
+            # If phone number is not registered, send error
+            if not phone_number_id:
+                response["type"] = "error"
+                response["data"]["phone_error"] = 1
+                response["data"]["phone_message"] = "Phone number not registered"
+
+                return response
+            # If phone number is registered, get password hash
+            else:
+                phone_number_id = phone_number_id[0]
+
+                self.cursor.execute(
+                    "SELECT password_hash FROM app_user "
+                    "WHERE id = (SELECT user_id FROM user_phone WHERE phone_id = %s)",
+                    (phone_number_id,)
+                )
+                password_hash = self.cursor.fetchone()
+
+        # If password hash is empty, send error for non-existent user
         if not password_hash:
             response["type"] = "error"
-            response["data"]["email_error"] = 1
-            response["data"]["email_message"] = "Email not registered"
+            # If credential is email, send email error
+            if email_auth:
+                response["data"]["email_error"] = 1
+                response["data"]["email_message"] = "Email not registered"
+            # If credential is phone number, send phone number error
+            elif phone_auth:
+                response["data"]["phone_error"] = 1
+                response["data"]["phone_message"] = "Phone number not registered"
+
             return response
 
+        # If password is incorrect, send error
         if not checkpw(password.encode('utf-8'), password_hash[0].encode('utf-8')):
             response["type"] = "error"
             response["data"]["password_error"] = 2
             response["data"]["password_message"] = "Incorrect password"
             return response
+        # If password is correct, get user data
         else:
-            self.cursor.execute(
-                "SELECT * FROM app_user "
-                "WHERE id = %s",
-                (email_address_id,)
-            )
-            user = self.cursor.fetchone()
+            # Get user data based on email
+            if email_auth:
+                # Get user data
+                self.cursor.execute(
+                    "SELECT * FROM app_user "
+                    "WHERE id = %s",
+                    (email_address_id,)
+                )
+                user = self.cursor.fetchone()
+            # Get user data based on phone number
+            elif phone_auth:
+                self.cursor.execute(
+                    "SELECT * FROM app_user "
+                    "WHERE id = %s",
+                    (phone_number_id,)
+                )
+                user = self.cursor.fetchone()
 
+            # Get user's email address based on user's id
+            self.cursor.execute(
+                "SELECT email_address, id FROM email_address "
+                "WHERE id = (SELECT email_id FROM user_email WHERE user_id = %s)",
+                (user[0],)
+            )
+            email_address, email_address_id = self.cursor.fetchone()[0]
+
+            # Get user's phone number based on user's id
             self.cursor.execute(
                 "SELECT phone_number, id FROM phone_number "
                 "WHERE id = (SELECT phone_id FROM user_phone WHERE user_id = %s)",
@@ -411,6 +480,7 @@ class Database(metaclass=DatabaseMeta):
             )
             phone_number, phone_number_id = self.cursor.fetchone()
 
+            # Get user's device data based on user's id
             self.cursor.execute(
                 "SELECT device_name, device_sn, id FROM device "
                 "WHERE id = (SELECT device_id FROM user_device WHERE user_id = %s)",
